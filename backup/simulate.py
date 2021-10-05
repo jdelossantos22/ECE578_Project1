@@ -30,8 +30,12 @@ class CSMS:
             next_interarrival = self.srcs[0].generate_interarrival()
             print(next_interarrival)
             yield self.env.timeout(100)
-            self.env.process(self.srcs[0].send(self.srcs[1], self.dest[0]))
-            self.env.process(self.srcs[1].send(self.srcs[0], self.dest[1]))
+            tasks = []
+            
+            tasks.append(self.env.process(self.srcs[0].send(self.srcs[1], self.dest[0])))
+            tasks.append(self.env.process(self.srcs[1].send(self.srcs[0], self.dest[1])))
+
+            yield(self.env.all_of(tasks))
 
             
 
@@ -54,22 +58,22 @@ def main():
     #DIFS + BACKOFF + FRAME + SIFS + ACK
     #CSMS/CA VCS
     #DIFS + BACKOFF + RTS + SIFS + CTS + SIFS + FRAME + SIFS + ACK
-    '''
+    
     env = simpy.Environment()
     #env.run(until=10)
     csms = CSMS(env,100)
     env.process(csms.run())
     env.run(until=300)
     return
-    '''
     
+    '''
     print(1/(parameters.SLOT_DUR*100))
     interarrivals = generate_interarrival()
     interarrivals = [math.floor(x) for x in interarrivals]
     for x in interarrivals:
         print(x)
     print(len(interarrivals))
-
+    '''
 
 if __name__ == "__main__":
     main()

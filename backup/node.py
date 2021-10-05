@@ -16,6 +16,7 @@ class Node:
         self.prevArrival = 0
         self.arr_rate = arr_rate
         self.isSending = False
+        #self.sendInterrupt = self.env.process(self.send())
         
         #CSMS
         #DIFS + BACKOFF + FRAME + SIFS + ACK
