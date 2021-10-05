@@ -55,7 +55,15 @@ class CSMA:
     
     def generate_interarrival(self):
         #uncomment code when ready for exponential distro
-        return math.floor(np.random.exponential(1/(parameters.SLOT_DUR*self.arrival_rate)))
+        # np.random.exponential(1/(parameters.SLOT_DUR*200), int(1/(parameters.SLOT_DUR*200))*10)
+        #final form
+        #interarrivals = math.floor(np.random.exponential(1/(parameters.SLOT_DUR*self.arrival_rate)), int(1/(parameters.SLOT_DUR*200))*10)
+
+        #testing 
+        #interarrivals = math.floor(np.random.exponential(1/(parameters.SLOT_DUR*self.arrival_rate)), 5)
+        interarrivals = [100, 100, 100]
+        interarrivals = [math.floor(x) for x in interarrivals]
+        return interarrivals
 
     def generate_next_packet(self):
         #generate the next two packets from the two sources
