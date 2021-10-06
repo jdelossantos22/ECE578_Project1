@@ -8,4 +8,4 @@ CW_MAX = 1024
 LAMBDA = [100] #[100,200, 300, 500, 700, 1000]
 ACK = RTS = CTS = 2
 DIFS_DUR = 2
-SIM_DUR = 10 #Simulation TIme 10 Seconds = 100,000 *10 = 1,000, 000
+SIM_DUR = 1#10 #Simulation TIme 10 Seconds = 100,000 *10 = 1,000, 000
