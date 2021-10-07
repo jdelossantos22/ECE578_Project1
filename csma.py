@@ -94,10 +94,18 @@ class CSMA:
             #print(traffic)
             #print(len(traffic))
             #uncomment for testing collisions
-            self.srcs[n].packets = [500, 800, 1000, 1500]
-            print(self.srcs[n].packets)
-            #self.srcs[n].packets = traffic#[500, 800, 1000, 1500]
-        
+            #self.srcs[n].packets = [500, 800, 1000, 1500]
+            #print(self.srcs[n].packets)
+            self.srcs[n].packets=traffic#[500, 800, 1000, 1500]
+
+    def generate_traffic(self,n, time):
+        interarrivals = self.generate_interarrival()
+        #time = 0
+        traffic = []
+        for i in interarrivals:
+            time += i
+            traffic.append(time)
+        self.srcs[n].packets = traffic
 
 
     def generate_next_packet(self):
@@ -124,6 +132,9 @@ class CSMA:
                 #if there is no freeze(backoff == -1), generate a backoff
                 if self.srcs[i].backoff == -1:
                     self.srcs[i].generate_backoff()
+                if len(self.srcs[i].packets) == 0:
+                    #generate more packets
+                    self.generate_traffic(i, self.clock)
             #CHANGE THIS FOR LOOP
             next_packet_time = math.inf
             next_packet_src_index = 0
@@ -141,6 +152,10 @@ class CSMA:
                         next_packet_src_index = i
                         next_packet_time = self.srcs[i].packets[0]
                         temp_backoff = self.srcs[i].backoff
+                    
+                    #handling hidden node topology
+                    elif self.hidden and not self.vcs and next_packet_time < self.srcs[i].packets[0] and self.srcs[i].packets[0] < next_packet_time + self.srcs[next_packet_src_index].nav :
+                        collision = True
                     #if next arrival is equal to each other
                     elif curr_packet_sense == next_packet_sense:
                         '''
@@ -155,6 +170,8 @@ class CSMA:
                             next_packet_time = self.srcs[i].packets[0]
                         '''
                         collision = True
+                        #if not self.vcs and self.hidden:
+                        #    collision = False
                     #print(next_packet_time)
 
             #
