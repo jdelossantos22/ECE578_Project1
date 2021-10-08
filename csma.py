@@ -21,7 +21,7 @@ class Node:
             self.nav += parameters.RTS + parameters.SIFS_DUR*2 + parameters.CTS
 
     def generate_backoff(self):
-        print("Source %s has a contention window of %d" % (self.name,self.cont_wind))
+        #print("Source %s has a contention window of %d" % (self.name,self.cont_wind))
         if self.cont_wind >= parameters.CW_MAX:
             self.cont_window = parameters.CW_MAX
         self.backoff = random.randint(0,self.cont_wind-1)
@@ -50,7 +50,7 @@ class CSMA:
         self.arrival_rate = arrival_rate
         self.sim_duration = sim_duration
         self.vcs = vcs
-        self.hiddent = hidden
+        self.hidden = hidden
         self.packet_counter = 0
         self.srcs = []
         self.dest = []
@@ -98,7 +98,7 @@ class CSMA:
             #print(self.srcs[n].packets)
             self.srcs[n].packets=traffic#[500, 800, 1000, 1500]
 
-    def generate_traffic(self,n, time):
+    def generate_more_traffic(self,n, time):
         interarrivals = self.generate_interarrival()
         #time = 0
         traffic = []
@@ -127,10 +127,7 @@ class CSMA:
             #finding minimum on next packets from the two sources
             collision = False
             queueEmpty = False
-            #handling if next arrival is less than clock
-            for n in self.srcs:
-                if n.packets[0] < self.clock:
-                    n.packets[0] = self.clock
+            
 
             
             #generating backoff and generating more traffic if needed
@@ -140,8 +137,12 @@ class CSMA:
                     self.srcs[i].generate_backoff()
                 if len(self.srcs[i].packets) == 0:
                     #generate more packets
-                    self.generate_traffic(i, self.clock)
-                    
+                    self.generate_more_traffic(i, self.clock)
+            #handling if next arrival is less than clock
+            for n in self.srcs:
+                if n.packets[0] < self.clock:
+                    n.packets[0] = self.clock
+
             #CHANGE THIS FOR LOOP
             next_packet_time = math.inf
             next_packet_src_index = 0
@@ -150,7 +151,7 @@ class CSMA:
             for i in range(len(self.srcs)):
                 #find next packet time, which is least time
                 if len(self.srcs[i].packets) > 0:
-                    print(self.srcs[i].packets[0])
+                    #print(self.srcs[i].packets[0])
                     #THe current packets next arrivat + difs + backoff
                     curr_packet_sense= self.srcs[i].packets[0]+ parameters.DIFS_DUR+self.srcs[i].backoff
                     #the current latest next packet arrival time + difs + backoff
@@ -177,6 +178,7 @@ class CSMA:
                             next_packet_src_index = i
                             next_packet_time = self.srcs[i].packets[0]
                         '''
+                        next_packet_src_index = i
                         collision = True
                         #if not self.vcs and self.hidden:
                         #    collision = False
@@ -194,38 +196,38 @@ class CSMA:
             #print(senseTimeout)
             #sense if another packet started difs during sensing period
             if not collision:
-                print("The next packet is from source %s at time %d" % (self.srcs[next_packet_src_index].name,next_packet_time))
+                #print("The next packet is from source %s at time %d" % (self.srcs[next_packet_src_index].name,next_packet_time))
                 #print(next_packet_time)
                 #set clock to next packet time
                 
                 self.clock = next_packet_time
-                print("Packet arrived/ready for transmission at %d" % self.clock)
+                #print("Packet arrived/ready for transmission at %d" % self.clock)
 
                 #Sense Timeout = DIFS duration + backoff
-                print("Source %s has a backoff of %d" % (self.srcs[next_packet_src_index].name, self.srcs[next_packet_src_index].backoff))
+                #print("Source %s has a backoff of %d" % (self.srcs[next_packet_src_index].name, self.srcs[next_packet_src_index].backoff))
                 senseTimeout = self.clock + parameters.DIFS_DUR + self.srcs[next_packet_src_index].backoff
                 if (self.vcs == True):
                     senseTimeout += parameters.RTS + parameters.SIFS_DUR
-                    print("Source %s sent RTS at time %d" %(self.srcs[next_packet_src_index].name, senseTimeout))
+                    #print("Source %s sent RTS at time %d" %(self.srcs[next_packet_src_index].name, senseTimeout))
                 self.sense_busy_medium(senseTimeout, next_packet_src_index)
                 #collision = self.isCollision(next_packet_src_index)
                 self.clock = senseTimeout
                 #handle vcs 
                 if(self.vcs == True):
                     self.clock += parameters.CTS + parameters.SIFS_DUR
-                    print("Source %s received CTS at time %d" %(self.srcs[next_packet_src_index].name, self.clock))
+                    #print("Source %s received CTS at time %d" %(self.srcs[next_packet_src_index].name, self.clock))
                 self.clock += parameters.FRAME_SIZE + parameters.SIFS_DUR + parameters.ACK
-                print("Frame sent at %d" % self.clock)
+                #print("Frame sent at %d" % self.clock)
                 self.srcs[next_packet_src_index].tx += 1
                 self.srcs[next_packet_src_index].packets.pop(0)
                 self.srcs[next_packet_src_index].backoff = -1
                 self.srcs[next_packet_src_index].cont_wind = parameters.CW_0
                 
             else:
-                print("Handling collision advancing clock by nav and multiplying current contention window by 2")
-                self.handle_collision()
+                #print("Handling collision advancing clock by nav and multiplying current contention window by 2")
+                self.handle_collision(next_packet_src_index)
 
-        print(self.clock)
+        #print(self.clock)
         for i in range(len(self.srcs)):
             print("Source %s:" % self.srcs[i].name)
             print("Successful Transmissions: %d" % self.srcs[i].tx)
@@ -235,8 +237,8 @@ class CSMA:
         self.clock += parameters.RTS + parameters.SIFS_DUR
 
 
-    def handle_collision(self):
-        self.clock += self.srcs[0].nav
+    def handle_collision(self, index):
+        self.clock += self.srcs[index].nav - parameters.DIFS_DUR - self.srcs[index].backoff
         for n in self.srcs:
             n.backoff = -1
             n.col += 1
@@ -269,9 +271,9 @@ class CSMA:
                     if self.srcs[i].backoff == -1:
                         self.srcs[i].generate_backoff()
                     #print(expended_backoff)
-                    print("Source %s backoff is %d" % (self.srcs[i].name, self.srcs[i].backoff))
+                    #("Source %s backoff is %d" % (self.srcs[i].name, self.srcs[i].backoff))
                     self.srcs[i].backoff -= expended_backoff
-                    print("Source %s backoff freeze is %d" % (self.srcs[i].name, self.srcs[i].backoff))
+                    #print("Source %s backoff freeze is %d" % (self.srcs[i].name, self.srcs[i].backoff))
 
 #plot data
 def plot_data():
@@ -280,11 +282,11 @@ def plot_data():
 def collect_data(csma,stats, l):
     #stats[NUM_COLS].append(csma.).
     for n in csma.srcs:
-        print(n.tx)
+        #print(n.tx)
         np.append(stats[NUM_COLS], [np.asarray([l, n.col])])
         np.append(stats[NUM_TX], [np.asarray([l, n.tx])])
         np.append(stats[THROUGHPUT], [np.asarray([l, n.tp])])
-    print(stats)
+    #print(stats)
     return stats
 NUM_COLS = "cols"
 NUM_TX = "tx"
@@ -303,18 +305,20 @@ def main():
     for i in range(len(parameters.LAMBDA)):
         print("Simulation parameters(Arrival Rate = %d)" % parameters.LAMBDA[i])
         #simduration = 10*100,000
-        csma = CSMA(parameters.LAMBDA[i], False, parameters.SIM_DUR*150)
+        print("This is CSMA/CA")
+        csma = CSMA(parameters.LAMBDA[i], False, parameters.SIM_DUR*100000)
         #interarrival = csma.generate_interarrival()
         #print(interarrival)
         #@print(len(interarrival))
         csma.transmit()
-        stats = collect_data(csma,stats,i)
-        #csma_vcs = CSMA(parameters.LAMBDA[i], True, parameters.SIM_DUR*150)
-        #csma_vcs.transmit()
         #stats = collect_data(csma,stats,i)
-    for k,v in stats.items():
-        print(k)
-        print(v)
+        print("This is CSMA/CA VCS")
+        csma_vcs = CSMA(parameters.LAMBDA[i], True, parameters.SIM_DUR*100000)
+        csma_vcs.transmit()
+        #stats = collect_data(csma,stats,i)
+    #for k,v in stats.items():
+    #    print(k)
+    #    print(v)
     '''
     csma.generate_traffic()
     print("Source A traffic:")
