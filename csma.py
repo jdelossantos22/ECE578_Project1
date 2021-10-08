@@ -127,7 +127,13 @@ class CSMA:
             #finding minimum on next packets from the two sources
             collision = False
             queueEmpty = False
-            #initial grab of which index is lower
+            #handling if next arrival is less than clock
+            for n in self.srcs:
+                if n.packets[0] < self.clock:
+                    n.packets[0] = self.clock
+
+            
+            #generating backoff and generating more traffic if needed
             for i in range(len(self.srcs)):
                 #if there is no freeze(backoff == -1), generate a backoff
                 if self.srcs[i].backoff == -1:
@@ -135,10 +141,12 @@ class CSMA:
                 if len(self.srcs[i].packets) == 0:
                     #generate more packets
                     self.generate_traffic(i, self.clock)
+                    
             #CHANGE THIS FOR LOOP
             next_packet_time = math.inf
             next_packet_src_index = 0
             temp_backoff = 0
+            #initial grab of which index is lower
             for i in range(len(self.srcs)):
                 #find next packet time, which is least time
                 if len(self.srcs[i].packets) > 0:
@@ -178,10 +186,7 @@ class CSMA:
             #print(next_packet_time)
             if next_packet_time == math.inf:
                 break
-            #handling if next arrival is less than clock
-            for n in self.srcs:
-                if n.packets[0] < self.clock:
-                    n.packets[0] = self.clock
+            
             if next_packet_time < self.clock:
                 next_packet_time = self.clock
             #print(next_packet_time)
