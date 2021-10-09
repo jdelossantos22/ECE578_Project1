@@ -5,6 +5,7 @@ import parameters
 import math
 import pandas as pd
 import matplotlib.pyplot as plt
+from csmaPlot import *
 
 class Node:
     def __init__(self, id, name, vcs=False):
@@ -122,7 +123,7 @@ class CSMA:
         roundCount = 0
         while self.clock < self.sim_duration:
             roundCount += 1
-            print("This is round %d of the simulation at time %d" % (roundCount,self.clock))
+            #print("This is round %d of the simulation at time %d" % (roundCount,self.clock))
             
             #finding minimum on next packets from the two sources
             collision = False
@@ -162,9 +163,7 @@ class CSMA:
                         next_packet_time = self.srcs[i].packets[0]
                         temp_backoff = self.srcs[i].backoff
                     
-                    #handling hidden node topology
-                    elif self.hidden and not self.vcs and next_packet_time < self.srcs[i].packets[0] and self.srcs[i].packets[0] < next_packet_time + self.srcs[next_packet_src_index].nav :
-                        collision = True
+                    
                     #if next arrival is equal to each other
                     elif curr_packet_sense == next_packet_sense:
                         '''
@@ -179,10 +178,29 @@ class CSMA:
                             next_packet_time = self.srcs[i].packets[0]
                         '''
                         next_packet_src_index = i
+                        #next_packet_time = self.srcs[i].packets[0]
                         collision = True
                         #if not self.vcs and self.hidden:
                         #    collision = False
                     #print(next_packet_time)
+                    #handling hidden node topology
+                    #if self.hidden and not self.vcs and next_packet_sense <= curr_packet_sense and curr_packet_sense < next_packet_sense + self.srcs[next_packet_src_index].nav - parameters.DIFS_DUR - self.srcs[i].backoff :
+                    #    next_packet_src_index = i
+                    #    collision = True
+
+            
+            if self.hidden:
+                next_packet_start = next_packet_time + parameters.DIFS_DUR + self.srcs[next_packet_src_index].backoff
+                next_packet_end = next_packet_time + parameters.DIFS_DUR + self.srcs[next_packet_src_index].backoff + self.srcs[next_packet_src_index].nav
+                for i in range(len(self.srcs)):
+                    #handling hidden node topology
+                    
+                    if i != next_packet_src_index:
+                        curr_packet_start = self.srcs[i].packets[0] + parameters.DIFS_DUR + self.srcs[i].backoff
+                        if not self.vcs and next_packet_start <= curr_packet_start and curr_packet_start < next_packet_end :
+                            #next_packet_src_index = i
+                            collision = True
+            
 
             #
             #print(next_packet_time)
@@ -238,7 +256,9 @@ class CSMA:
 
 
     def handle_collision(self, index):
-        self.clock += self.srcs[index].nav - parameters.DIFS_DUR - self.srcs[index].backoff
+        self.clock += self.srcs[index].nav
+        later_time = 0
+        diff = 0
         for n in self.srcs:
             n.backoff = -1
             n.col += 1
@@ -247,6 +267,10 @@ class CSMA:
             n.cont_wind *= 2
             if n.cont_wind >= parameters.CW_MAX:
                 n.cont_wind = parameters.CW_MAX
+            #if n.packets[0] > later_time and self.hidden:
+                #diff = n.packets[0] - later_time
+                #later_time = n.packets[0]
+        self.clock += diff
 
     def isCollision(self, p_index):
         for i in range(len(self.srcs)):
@@ -276,18 +300,6 @@ class CSMA:
                     #print("Source %s backoff freeze is %d" % (self.srcs[i].name, self.srcs[i].backoff))
 
 #plot data
-def plot_data():
-    return
-
-def collect_data(csma,stats, l):
-    #stats[NUM_COLS].append(csma.).
-    for n in csma.srcs:
-        #print(n.tx)
-        np.append(stats[NUM_COLS], [np.asarray([l, n.col])])
-        np.append(stats[NUM_TX], [np.asarray([l, n.tx])])
-        np.append(stats[THROUGHPUT], [np.asarray([l, n.tp])])
-    #print(stats)
-    return stats
 NUM_COLS = "cols"
 NUM_TX = "tx"
 THROUGHPUT = "throughput"
@@ -295,9 +307,9 @@ THROUGHPUT = "throughput"
 def main():
     #(self, arrival_rate=1000,vcs=False, sim_duration=2000):
     #for l in parameters.LAMBDA
-    num_cols = np.array([[]])
-    num_tx = np.array([[]])
-    throughput = np.array([[]])
+    num_cols = list()
+    num_tx = list()
+    throughput = list()
     stats = {}
     stats[NUM_COLS] = num_cols
     stats[NUM_TX] = num_tx
@@ -305,27 +317,33 @@ def main():
     for i in range(len(parameters.LAMBDA)):
         print("Simulation parameters(Arrival Rate = %d)" % parameters.LAMBDA[i])
         #simduration = 10*100,000
-        print("This is CSMA/CA")
-        csma = CSMA(parameters.LAMBDA[i], False, parameters.SIM_DUR*100000)
+        
         #interarrival = csma.generate_interarrival()
         #print(interarrival)
         #@print(len(interarrival))
+        print("CSMA")
+        csma = CSMA(parameters.LAMBDA[i], False, parameters.SIM_DUR*100000)
         csma.transmit()
-        #stats = collect_data(csma,stats,i)
-        print("This is CSMA/CA VCS")
+        stats = collect_data(csma,stats,i)
+
+        print("CSMA/VCS")
         csma_vcs = CSMA(parameters.LAMBDA[i], True, parameters.SIM_DUR*100000)
         csma_vcs.transmit()
-        #stats = collect_data(csma,stats,i)
+        stats = collect_data(csma_vcs,stats,i)
+
+        print("CSMA - HIDDEN")
+        csma_hidden = CSMA(parameters.LAMBDA[i], False, parameters.SIM_DUR*100000,True)
+        csma_hidden.transmit()
+        stats = collect_data(csma_hidden,stats,i)
+
+        print("CSMA/VCS - HIDDEN")
+        csma_hidden_vcs = CSMA(parameters.LAMBDA[i], True, parameters.SIM_DUR*100000,True)
+        csma_hidden_vcs.transmit()
+        stats = collect_data(csma_hidden_vcs,stats,i)
     #for k,v in stats.items():
-    #    print(k)
-    #    print(v)
-    '''
-    csma.generate_traffic()
-    print("Source A traffic:")
-    print(csma.srcs[0].packets)
-    print("Source C traffic:")
-    print(csma.srcs[1].packets)
-    '''
+        #print(k)
+        #print(v)
+    plot_data(stats, 2)
 
 
 if __name__  == "__main__":

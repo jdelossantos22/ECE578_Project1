@@ -11,3 +11,4 @@ LAMBDA = [100,200, 300, 500, 700, 1000]#[]100]
 ACK = RTS = CTS = 2
 DIFS_DUR = 2
 SIM_DUR = 10#10 #Simulation TIme 10 Seconds = 100,000 *10 = 1,000, 000
+#
