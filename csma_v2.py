@@ -356,6 +356,7 @@ def main():
     #for k,v in stats.items():
         #print(k)
         #print(v)
+    #print(stats)
     plot_data(stats, 2)
 
 
