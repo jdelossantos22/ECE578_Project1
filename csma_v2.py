@@ -134,7 +134,7 @@ class CSMA:
             #generating backoff and generating more traffic if needed
             for i in range(len(self.srcs)):
                 #if there is no freeze(backoff == -1), generate a backoff
-                if self.srcs[i].backoff == -1:
+                if self.srcs[i].backoff < 0:
                     self.srcs[i].generate_backoff()
                 if len(self.srcs[i].packets) == 0:
                     #generate more packets
@@ -178,7 +178,6 @@ class CSMA:
                             next_packet_time = self.srcs[i].packets[0]
                         '''
                         next_packet_src_index = i
-                        #next_packet_time = self.srcs[i].packets[0]
                         collision = True
                         #if not self.vcs and self.hidden:
                         #    collision = False
@@ -189,27 +188,30 @@ class CSMA:
                     #    collision = True
 
             
-            if self.hidden:
-                next_packet_start = next_packet_time + parameters.DIFS_DUR + self.srcs[next_packet_src_index].backoff
-                next_packet_end = next_packet_start + self.srcs[next_packet_src_index].nav
+            if not self.vcs and self.hidden:
+                #next_packet_sense = next_packet_time + parameters.DIFS_DUR + self.srcs[next_packet_src_index].backoff
                 for i in range(len(self.srcs)):
                     #handling hidden node topology
                     if i != next_packet_src_index:
-                        curr_packet_start = self.srcs[i].packets[0] + parameters.DIFS_DUR + self.srcs[i].backoff
-                        if not self.vcs and curr_packet_start < next_packet_end :#next_packet_start <= curr_packet_start and 
+                        #current_packet = self.srcs[0] + diffs + bckoff, Next_Packet = self.srcs[1] + diffs + bckoff
+                        #self.srcs[next_packet_src_index].packets[0] always <= self.srcs[i].packets[0]
+                        if  (self.srcs[next_packet_src_index].packets[0] <= self.srcs[i].packets[0] and 
+                        self.srcs[next_packet_src_index].packets[0] + self.srcs[next_packet_src_index].backoff + self.srcs[next_packet_src_index].nav >= self.srcs[i].packets[0] + self.srcs[i].backoff):
+                            collision = True 
+                        elif (self.srcs[next_packet_src_index].packets[0] > self.srcs[i].packets[0] 
+                        and self.srcs[i].packets[0] + self.srcs[i].backoff + self.srcs[i].nav >= self.srcs[next_packet_src_index].packets[0] + self.srcs[next_packet_src_index].backoff):
                             #next_packet_src_index = i
                             collision = True
             
 
             #
             #print(next_packet_time)
+            self.clock = next_packet_time
+            #if next_packet_time < self.clock:
+            #    next_packet_time = self.clock
+            #print(next_packet_time)
             if next_packet_time == math.inf:
                 break
-            
-            if next_packet_time < self.clock:
-                next_packet_time = self.clock
-            #print(next_packet_time)
-            
             #print(senseTimeout)
             #sense if another packet started difs during sensing period
             if not collision:
@@ -217,12 +219,15 @@ class CSMA:
                 #print(next_packet_time)
                 #set clock to next packet time
                 
-                self.clock = next_packet_time
+
                 #print("Packet arrived/ready for transmission at %d" % self.clock)
 
                 #Sense Timeout = DIFS duration + backoff
                 #print("Source %s has a backoff of %d" % (self.srcs[next_packet_src_index].name, self.srcs[next_packet_src_index].backoff))
                 senseTimeout = self.clock + parameters.DIFS_DUR + self.srcs[next_packet_src_index].backoff
+                if(not self.vcs and self.hidden):
+                    senseTimeout += parameters.FRAME_SIZE + parameters.SIFS_DUR                
+                        
                 if (self.vcs == True):
                     senseTimeout += parameters.RTS + parameters.SIFS_DUR
                     #print("Source %s sent RTS at time %d" %(self.srcs[next_packet_src_index].name, senseTimeout))
@@ -233,9 +238,17 @@ class CSMA:
                 if(self.vcs == True):
                     self.clock += parameters.CTS + parameters.SIFS_DUR
                     #print("Source %s received CTS at time %d" %(self.srcs[next_packet_src_index].name, self.clock))
-                self.clock += parameters.FRAME_SIZE + parameters.SIFS_DUR + parameters.ACK
+                if(self.hidden and not self.vcs):
+                    self.clock += parameters.ACK
+                else:
+                    self.clock += parameters.FRAME_SIZE + parameters.SIFS_DUR + parameters.ACK
+                    
                 #print("Frame sent at %d" % self.clock)
                 self.srcs[next_packet_src_index].tx += 1
+                if self.hidden and not self.vcs:
+                    adv = self.srcs[next_packet_src_index].packets[0] + parameters.DIFS_DUR + self.srcs[next_packet_src_index].backoff + self.srcs[next_packet_src_index].nav
+                    if len(self.srcs[next_packet_src_index].packets) > 1 and self.srcs[next_packet_src_index].packets[1] < adv:
+                        self.srcs[next_packet_src_index].packets[1] = adv
                 self.srcs[next_packet_src_index].packets.pop(0)
                 self.srcs[next_packet_src_index].backoff = -1
                 self.srcs[next_packet_src_index].cont_wind = parameters.CW_0
@@ -255,9 +268,11 @@ class CSMA:
 
 
     def handle_collision(self, index):
-        self.clock += self.srcs[index].nav
-        later_time = 0
-        diff = 0
+        if not self.hidden or self.vcs:
+            self.clock += self.srcs[index].nav
+        if self.hidden and not self.vcs:
+            self.srcs[index].packets[0] += parameters.DIFS_DUR + self.srcs[index].backoff + self.srcs[index].nav
+            #self.srcs[1].packets[0]  += parameters.DIFS_DUR + self.srcs[1].backoff + self.srcs[1].nav
         for n in self.srcs:
             n.backoff = -1
             n.col += 1
@@ -269,7 +284,6 @@ class CSMA:
             #if n.packets[0] > later_time and self.hidden:
                 #diff = n.packets[0] - later_time
                 #later_time = n.packets[0]
-        self.clock += diff
 
     def isCollision(self, p_index):
         for i in range(len(self.srcs)):
@@ -282,7 +296,6 @@ class CSMA:
     def sense_busy_medium(self, senseTimeout, p_index):
         #print(senseTimeout)
         #print(p_index)
-
         for i in range(len(self.srcs)):
             if i != p_index:
                 if len(self.srcs[i].packets) > 0 and self.srcs[i].packets[0] < senseTimeout:
@@ -292,7 +305,7 @@ class CSMA:
                     #subtract that from generated backoff
                     difference = self.srcs[i].packets[0] + parameters.DIFS_DUR
                     expended_backoff = senseTimeout - (difference)
-                    if self.srcs[i].backoff == -1:
+                    if self.srcs[i].backoff < 0 :
                         self.srcs[i].generate_backoff()
                     #print(expended_backoff)
                     #("Source %s backoff is %d" % (self.srcs[i].name, self.srcs[i].backoff))
